@@ -1,12 +1,10 @@
-
 library(shiny)
-library(shinydashboard)
-library(dashboardthemes)
 library(ggplot2)
+library(ggtext)
 library(waffle)
 library(data.table)
 library(dplyr)
-library(plotly)
+library(shinydashboard)
 
 factions = c("The Arborec",
              "The Barony of Letnev",
@@ -27,86 +25,48 @@ factions = c("The Arborec",
              "The Yssaril Tribes")
 
 ui <- function(requests) {
-    dashboardPage(
-    dashboardHeader(title = "Twilight Imperium Faction Picker"),
-    dashboardSidebar(
-        sidebarMenu(
-            menuItem("Randomize factions", tabName = "factions", icon = icon("random")),
-            menuItem("Randomize tiles", tabName = "tiles", icon = icon("th")),
-            menuItem("Faction info", tabName = "widgets", icon = icon("rocket"))
-        )
-    ),
-    ## Body content
-    dashboardBody(
-        shinyDashboardThemes(
-            theme = "grey_light"
-        ),
-        tabItems(
-            # First tab content
-            tabItem(tabName = "factions",
-                    fluidRow(
-                        box(width = 3,
-                            title = ("Options"),
-                            collapsible = T,
-                            checkboxInput("include_expansion", "Include Prophecy of Kings expansion"),
-                            checkboxInput("randomize_seats", "Randomize seats", value = T),
-                            tags$div(title="A specific seed number will always generate the same results. If left blank, a random number will be generated.",
-                            textInput("seed", "Set seed")),
-                            
-                            tags$div(title="How many people are playing?",
-                                numericInput("nplayers", "Number of players", min = 2, max = 6, step = 1, value = 6)
-                                ),
-                            tags$div(title="How many factions should each player get to choose between?",
-                                numericInput("nfactionspp", "Number of factions per player", min = 1, max = 2, step = 1, value = 2)
-                                ),
-                            checkboxGroupInput("allfactions", "Include factions", choices = factions, inline = F, selected = factions)
-                            
-                        ),
+    fluidPage(
+        fluidRow(
+            box(width = 3,
+                title = ("Options"),
+                collapsible = T,
+                checkboxInput("include_expansion", "Include Prophecy of Kings expansion"),
+                checkboxInput("randomize_seats", "Randomize seats", value = T),
+                tags$div(title = "A specific seed number will always generate the same results. If left blank, a random number will be generated.",
+                textInput("seed", "Set seed")),
+                
+                tags$div(title = "How many people are playing?",
+                    numericInput("nplayers", "Number of players", min = 2, max = 6, step = 1, value = 6)
+                    ),
+                tags$div(title = "How many factions should each player get to choose between?",
+                    numericInput("nfactionspp", "Number of factions per player", min = 1, max = 2, step = 1, value = 2)
+                    ),
+                checkboxGroupInput("allfactions", "Include factions", choices = factions, inline = F, selected = factions)
+                
+            ),
 
-                        box(width = 8,
-                            title = ("Player settings"),
-                            collapsible = T,
-                            tags$div(title="Assign player names. These fields can be left blank.",
-                                wellPanel(
-                                    uiOutput("ui1")
-                                    )
-                                ),
-                            tags$div(title="Assign easier to play with factions for any player.",
-                                selectInput("handicap", "Prioritize 'beginner' factions for", choices = list(), multiple = T)
-                                ),
-                            actionButton("assign", "Assign", icon = icon("random")),
-                            bookmarkButton(id = "bookmark1", label = "Share", icon = icon("share"))
-                        ),
-                            
-                        box(width = 8,
-                            plotOutput("results")
-                            
+            box(width = 9,
+                title = ("Player settings"),
+                collapsible = T,
+                tags$div(title = "Assign player names. These fields can be left blank.",
+                    wellPanel(
+                        uiOutput("ui1")
                         )
-                    )
+                    ),
+                tags$div(title="Assign easier to play with factions for any player.",
+                    selectInput("handicap", "Prioritize 'beginner' factions for", choices = list(), multiple = T),
+                    checkboxInput("speaker", "Assign speaker")
+                    ),
+                actionButton("assign", "Assign", icon = icon("random")),
+                bookmarkButton(id = "bookmark1", label = "Share", icon = icon("share"))
             ),
-            
-            tabItem(tabName = "tiles",
-                    fluidRow(
-                        box(width = 4,
-                            title = ("Options"),
-                            "Coming soon"
-                        ),
-                        
-                        box(width = 8, height = '500px',
-                            plotlyOutput("tilemap")
-                        )
-                        
-                    )
-            ),
-            
-            # Second tab content
-            tabItem(tabName = "widgets",
-                    h2("Faction info"),
-                    "Coming soon"
+                
+            box(width = 9,
+                plotOutput("results")
+                
             )
         )
     )
-)
 }
 
 server <- function(input, output, session) {
@@ -118,8 +78,6 @@ server <- function(input, output, session) {
     })
     
     onBookmark(function(state) {
-        # state is a mutable reference object, and we can add arbitrary values
-        # to it.
         state$values$seed <- fdata$seed
         state$values$parts <- fdata$parts
         
@@ -129,7 +87,7 @@ server <- function(input, output, session) {
         updateTextInput(session, "seed", "Set seed", placeholder = as.character(fdata$seed))
 
         output$results <- renderPlot({
-            waffle(unlist(state$values$parts), rows = 2, legend_pos = "bottom") + theme(legend.text = element_text(size = 14))
+            waffle(unlist(state$values$parts), rows = 2, legend_pos = "bottom") + theme(legend.text = element_markdown(size = 14))
             
         })
         
@@ -209,8 +167,10 @@ server <- function(input, output, session) {
     }
    
     output$results <- renderPlot({
+        dat <- dat()
+        assign("dat", dat, envir = .GlobalEnv)
         
-        if(!is.na(input$nplayers) & !is.na(input$nfactionspp)) waffle(dat(), rows = 2, legend_pos = "bottom") + theme(legend.text = element_text(size = 14))
+        if(!is.na(input$nplayers) & !is.na(input$nfactionspp)) waffle(dat(), rows = 2, legend_pos = "bottom") + theme(legend.text = element_markdown(size = 14))
 
     })
     
@@ -249,9 +209,17 @@ server <- function(input, output, session) {
                 fdata$selected_factions[sample.int(n = length(fdata$selected_factions), size = input$nplayers * input$nfactionspp)]
             }
             
-            
             players <- get_player_names()
+            assign("players", players, envir = .GlobalEnv)
             random_faction <- randomize_faction()
+            
+            if(input$speaker == T) {
+                speaker <- sample(players, 1)
+                players[players == speaker] <- paste0("**", speaker, " (speaker)", "**")
+            } else {
+                speaker <- NULL
+            }
+            
             
             if(!is.null(input$handicap)){
                 handicap <- input$handicap
@@ -267,14 +235,14 @@ server <- function(input, output, session) {
                 
                 if(p %in% handicap){
                     y <- beginner_factions[1:input$nfactionspp]
-                    x <- paste(y, collapse = ",\n")
-                    p <- paste(p, x, sep = "\n")
+                    x <- paste(y, collapse = ",<br>")
+                    p <- paste(p, x, sep = "<br>")
                     beginner_factions <<- beginner_factions[!beginner_factions %in% y]
                     random_faction <<- random_faction[!random_faction %in% y]
                 } else {
                     y <- random_faction[1:input$nfactionspp]
-                    x <- paste(y, collapse = ",\n")
-                    p <- paste(p, x, sep = "\n")
+                    x <- paste(y, collapse = ",<br>")
+                    p <- paste(p, x, sep = "<br>")
                     random_faction <<- random_faction[!random_faction %in% y]
                 }
                 
@@ -355,136 +323,6 @@ server <- function(input, output, session) {
                 
             }
     }, ignoreInit = T)
-    
-    hexmap <- function(tiles){
-        f <- ggplot(tiles, aes(x = x,
-                               y = y,
-                               fill = Anomaly,
-                               "key" = Tile,
-                               "neighbor_anomaly" = neighbor_anomaly)) +
-            geom_hex(stat = "identity", alpha=0.8) +
-            xlim(c(min(tiles$x - 1.5), max(tiles$x + 1.5))) +
-            ylim(c(min(tiles$y - 1.5), max(tiles$y + 1.5))) +
-            scale_fill_manual(values = c("forestgreen", "firebrick4", "seagreen3"), alpha) +
-            theme_void()
-        
-        return(f)
-    }
-    
-    makeHoneyComb <- function(rings){
-        
-        map <- data.table()
-        map <- rbindlist(list(map, list(0, 0)))
-        
-        r = 0
-        while(r > -rings){
-            c = -r - 1
-            while(c > -rings -r){
-                map <- rbindlist(list(map, list(c, r)))
-                c = c-1
-            }
-            
-            r = r-1
-        }
-        
-        r = 1
-        while(r < rings){
-            c = 0
-            while(c > -rings){
-                map <- rbindlist(list(map, list(c, r)))
-                c = c-1
-            }
-            
-            r = r+1
-        }
-        
-        c = 1
-        while(c < rings){
-            r = -c
-            while(r < rings - c){
-                map <- rbindlist(list(map, list(c, r)))
-                r = r+1
-            }
-            c = c+1
-        }
-        
-        colnames(map) <- c("x", "y")
-        return(map)
-        
-    }
-    
-    swap_coords <- function(tile1, tile2){
-        tile1.x <- tile1[, x]
-        tile1.y <- tile1[, y]
-        
-        tile2.x <- tile2[, x]
-        tile2.y <- tile2[, y]
-        
-        tile1[, "x"] <- tile2.x
-        tile1[, "y"] <- tile2.y
-        
-        tile2[, "x"] <- tile1.x
-        tile2[, "y"] <- tile1.y
-        
-        return(list(tile1, tile2))
-    }
-    
-    has_neighbor_anomaly <- function(tile){
-        if(any(axial_neighbors(tile)$Anomaly)) return(T) else return(F)
-    }
-    
-    shuffle <- function(type) {
-        if (type == "Anomaly") return(tiles[sample(tiles[placed == F & Anomaly == T, which = T], 1)])
-        else if (type == "Normal") return(tiles[sample(tiles[placed == F & Anomaly == F, which = T], 1)])
-    }
-    
-    
-    
-    output$tilemap <- renderPlotly({
-        
-        tmp <- makeHoneyComb(4)
-        
-        data <- data.table(System = paste0(rep(LETTERS, each = 5), sep = "-", 1:5)[1:nrow(tmp)], colval = seq(1:nrow(tmp)), x = tmp$x, y = tmp$y)
-        
-        data[,"x"] <- data[,x] + data[,y] / 2
-        
-        axial_neighbors <- function(system) {
-            r <- system[, x]
-            c <- system[, y]
-            
-            
-            data.table(tiles[(x == r + 1 & y == c) |
-                                 (x == r + .5 & y == c - 1) |
-                                 (x == r - .5 & y == c - 1) |
-                                 (x == r -  1 & y == c) |
-                                 (x == r - .5 & y == c + 1) |
-                                 (x == r + .5 & y == c + 1)
-                             ]
-            )
-        }
-        
-        
-        tiles <- fread("~/faction_picker/tiles.csv")
-        tiles$x <- 0
-        tiles$y <- 0
-        tiles$color <- ifelse(tiles$Anomaly, 1, 2)
-        tiles$color <- as.factor(tiles$color)
-        
-        tiles <- tiles[13:49]
-        tiles$x <- data$x
-        tiles$y <- data$y
-        tiles$placed <- FALSE
-        tiles$neighbor_anomaly <- F
-        
-        
-        
-        
-        hm <- hexmap(tiles)
-        
-        ggplotly(p = hm)
-        
-    })
-    
 
 }
 
